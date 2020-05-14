@@ -19,7 +19,9 @@ struct client_data{
 class tw_timer
 {
 public:
-    tw_timer(int rot, int ts):next(NULL), prev(NULL), rotation(rot),time_slot(ts) {}
+    tw_timer(int rot, int ts, client_data* usr_data, void(*_cb_func)(client_data*)):
+        next(NULL), prev(NULL), rotation(rot),time_slot(ts), user_data(usr_data),
+        cb_func(_cb_func){}
     ~tw_timer() {}
 public:
     int rotation;   // 记录定时器在时间轮转多少圈后生效
@@ -47,7 +49,7 @@ public:
             }
         }
     }
-    tw_timer* add_timer(int timeout) {
+    tw_timer* add_timer(int timeout, client_data* usr_data, void (*cb_func)(client_data*)) {
         if(timeout < 0) {
             return NULL;
         }
@@ -60,7 +62,7 @@ public:
         }
         int rotation = ticks / N;
         int ts = (cur_slot + ticks % N) % N;
-        tw_timer *timer = new tw_timer(rotation, ts);
+        tw_timer *timer = new tw_timer(rotation, ts, usr_data, cb_func);
         printf("add timer: rotation is %d, ts is %d, cur_slot is %d\n", rotation, ts, cur_slot);
         if(slots[ts] == NULL) {
             slots[ts] = timer;
@@ -102,7 +104,13 @@ public:
                 tmp = tmp->next;
             }
             else {
+                printf("tmp->rotation = %d\n", tmp->rotation);
                 tmp->cb_func(tmp->user_data);
+                //printf("call back function return now\n");
+                //printf("current slot is %d \n", cur_slot);
+                //if(!slots[cur_slot]) {
+                //    printf("slots[cur_slot] is NULL\n");
+                //}
                 if(tmp == slots[cur_slot]) {
                     printf("delete slots[%d] header\n", cur_slot);
                     slots[cur_slot] = tmp->next;
@@ -110,8 +118,13 @@ public:
                         slots[cur_slot]->prev = NULL;
                     }
                     delete tmp;
+                    tmp = slots[cur_slot];
                 }
                 else {
+                    printf("delete one middle timer in slots[%d]\n", cur_slot);
+                    //if(tmp == NULL) {
+                    //    printf("but the timer already\n");
+                    //}
                     tmp->prev->next = tmp->next;
                     if(tmp->next) {
                         tmp->next->prev = tmp->prev;
